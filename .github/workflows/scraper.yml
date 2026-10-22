@@ -1,0 +1,45 @@
+name: Scraper de notícias
+
+on:
+  schedule:
+    - cron: "0 * * * *" # a cada hora, em UTC
+  workflow_dispatch:
+
+concurrency:
+  group: scraper
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AI_BASE_URL: ${{ vars.AI_BASE_URL }}
+      AI_MODEL: ${{ vars.AI_MODEL }}
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    steps:
+      - name: Verificar secrets
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Configure os secrets SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no repositório."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Executar scraper
+        run: node scraper_politica.js --site=g1
