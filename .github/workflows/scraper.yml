@@ -11,14 +11,20 @@ concurrency:
 
 permissions:
   contents: read
+  models: read # permite usar o GitHub Models com o token da própria execução
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AI_PROVEDORES: ${{ vars.AI_PROVEDORES }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      GH_MODELS_TOKEN: ${{ secrets.GH_MODELS_TOKEN || github.token }}
       AI_BASE_URL: ${{ vars.AI_BASE_URL }}
       AI_MODEL: ${{ vars.AI_MODEL }}
       AI_API_KEY: ${{ secrets.AI_API_KEY }}
@@ -42,4 +48,4 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Executar scraper
-        run: node scraper_politica.js --site=g1
+        run: node scraper_politica.js

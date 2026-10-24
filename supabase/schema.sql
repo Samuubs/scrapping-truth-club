@@ -13,6 +13,12 @@ create table if not exists public.noticias (
 -- Comentário gerado por IA (também cria a coluna em tabelas já existentes)
 alter table public.noticias add column if not exists comentario text;
 
+-- O comentário é obrigatório. ATENÇÃO: apaga, sem volta, as notícias antigas sem comentário.
+delete from public.noticias where comentario is null or btrim(comentario) = '';
+alter table public.noticias alter column comentario set not null;
+alter table public.noticias drop constraint if exists noticias_comentario_preenchido;
+alter table public.noticias add constraint noticias_comentario_preenchido check (btrim(comentario) <> '');
+
 create index if not exists noticias_coletado_em_idx on public.noticias (coletado_em desc);
 
 -- Busca por assunto em português (título + resumo), sem acentos e maiúsculas
