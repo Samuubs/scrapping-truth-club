@@ -1,56 +1,85 @@
-const { chromium } = require('playwright');
-const fs = require('fs').promises;
+const fs = require("fs").promises;
+const { existsSync } = require("fs");
 
-async function rasparNoticiasPolitica() {
-    const url = "https://g1.globo.com/politica/";
-    
-    // Inicializa o navegador
-    const browser = await chromium.launch({ headless: true });
-    
-    // Cria um novo contexto de navegação (corrige o erro de 'browser.new_page is not a function')
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    
-    console.log(`Acessando ${url}...`);
-    await page.goto(url, { waitUntil: "domcontentloaded" });
-    
-    // Espera o contêiner principal das notícias carregar
-    await page.waitForSelector(".feed-post-body");
-    
-    // Seleciona todos os cards de notícia do feed
-    const posts = await page.$$(".feed-post-body");
-    
-    const noticias = [];
-    
-    const limite = Math.min(posts.length, 15);
-    for (let i = 0; i < limite; i++) {
-        const post = posts[i];
-        
-        const tituloElement = await post.$("a.feed-post-link");
-        
-        if (tituloElement) {
-            const titulo = await tituloElement.innerText();
-            const link = await tituloElement.getAttribute("href");
-            
-            const resumoElement = await post.$(".feed-post-body-resumo");
-            const resumo = resumoElement ? await resumoElement.innerText() : "";
-            
-            const tempoElement = await post.$(".feed-post-datetime");
-            const tempo = tempoElement ? await tempoElement.innerText() : "";
-            
-            noticias.push({
-                titulo: titulo.trim(),
-                link: link,
-                resumo: resumo.trim(),
-                tempo_publicacao: tempo.trim()
-            });
-        }
+// Antes dos requires: os módulos leem process.env ao serem carregados
+if (existsSync(".env")) process.loadEnvFile(".env");
+
+const { chromium } = require("playwright");
+const { SITES } = require("./src/sites");
+const { normalizar, lista } = require("./src/util");
+const { montarAgentes } = require("./src/ia");
+const { rasparSite } = require("./src/scraping");
+const { combinarSites } = require("./src/duplicadas");
+const { completarDaPagina } = require("./src/paginas");
+const { comentarNoticias } = require("./src/comentarios");
+const { clienteSupabase, buscarExistentes, salvarNoSupabase } = require("./src/supabase");
+
+async function rasparNoticiasPolitica(nomesSites, assuntos) {
+    const termos = assuntos.split(",").map((t) => normalizar(t.trim())).filter(Boolean);
+
+    const agentes = montarAgentes();
+    if (!agentes.length) {
+        throw new Error("Nenhum provedor de IA configurado. Os comentários são obrigatórios: configure ao menos um provedor.");
     }
-    
-    await browser.close();
-    
-    await fs.writeFile("noticias_politica.json", JSON.stringify(noticias, null, 4), "utf-8");
-    console.log(`✅ Scraping concluído com sucesso! ${noticias.length} notícias salvas em 'noticias_politica.json'.`);
+    console.log(`🤖 Cadeia de IA: ${agentes.map((a) => a.nome).join(" → ")}`);
+
+    const browser = await chromium.launch({ headless: true });
+    let resultados;
+    try {
+        const context = await browser.newContext();
+        resultados = await Promise.allSettled(
+            nomesSites.map((nome) => rasparSite(context, nome, SITES[nome], termos))
+        );
+    } finally {
+        await browser.close();
+    }
+
+    const listas = [];
+    const falhas = [];
+    resultados.forEach((r, i) => {
+        if (r.status === "fulfilled") listas.push(r.value);
+        else {
+            falhas.push(nomesSites[i]);
+            console.error(`❌ [${nomesSites[i]}] Falha no scraping: ${r.reason?.message?.split("\n")[0]}`);
+        }
+    });
+
+    const supabase = clienteSupabase();
+    const existentes = await buscarExistentes(supabase, listas.flat().map((n) => n.link));
+    const listasNovas = listas.map((l) => l.filter((n) => !existentes.links.has(n.link)));
+    const ignoradas = listas.flat().length - listasNovas.flat().length;
+    if (ignoradas) console.log(`⏭️  ${ignoradas} notícias já estavam no banco e foram ignoradas.`);
+
+    const noticias = await combinarSites(listasNovas, agentes, existentes.recentes);
+
+    if (!noticias.length) {
+        console.log("ℹ️  Nenhuma notícia nova nesta execução.");
+    } else {
+        await completarDaPagina(noticias);
+
+        const comentadas = await comentarNoticias(noticias, agentes);
+
+        await fs.writeFile("noticias_politica.json", JSON.stringify(comentadas, null, 4), "utf-8");
+        console.log(`✅ Scraping concluído! ${comentadas.length} notícias de ${nomesSites.length - falhas.length}/${nomesSites.length} sites salvas em 'noticias_politica.json'.`);
+
+        await salvarNoSupabase(supabase, comentadas);
+    }
+
+    if (falhas.length) throw new Error(`Os seguintes sites falharam: ${falhas.join(", ")}`);
 }
 
-rasparNoticiasPolitica();
+const args = process.argv.slice(2);
+const siteArg = args.find((a) => a.startsWith("--site="));
+const nomesSites = siteArg ? lista(siteArg.slice("--site=".length).toLowerCase()) : Object.keys(SITES);
+const assuntos = args.filter((a) => a !== siteArg).join(" ");
+
+const desconhecidos = nomesSites.filter((nome) => !SITES[nome]);
+if (!nomesSites.length || desconhecidos.length) {
+    console.error(`Site desconhecido: "${desconhecidos.join(", ")}". Disponíveis: ${Object.keys(SITES).join(", ")}`);
+    process.exit(1);
+}
+
+rasparNoticiasPolitica([...new Set(nomesSites)], assuntos).catch((err) => {
+    console.error(`❌ ${err.message}`);
+    process.exit(1);
+});
