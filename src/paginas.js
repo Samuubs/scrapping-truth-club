@@ -73,9 +73,14 @@ async function completarDaPagina(noticias) {
     try {
         await Promise.all(
             noticias.map(async (n) => {
-                const html = (await baixarHtml(n.link)) ?? (await htmlPeloNavegador(n.link));
+                const dataFeed = n.tempo_publicacao ? new Date(n.tempo_publicacao) : null;
+                const dataValida = dataFeed && !Number.isNaN(dataFeed.getTime()) ? dataFeed : null;
+                const linkGoogleNoticias = new URL(n.link).hostname === "news.google.com";
+                const html = dataValida && (n.imagem || linkGoogleNoticias)
+                    ? null
+                    : (await baixarHtml(n.link)) ?? (await htmlPeloNavegador(n.link));
                 const pagina = html ? lerPagina(html, n.link) : {};
-                let data = pagina.data || dataRelativa(n.tempo_publicacao);
+                let data = pagina.data || dataRelativa(n.tempo_publicacao) || dataValida;
                 // Sem data na página nem no card: usa o momento da coleta
                 if (!data) {
                     data = new Date();

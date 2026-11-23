@@ -29,7 +29,7 @@ Sites cadastrados:
 |---|---|---|---|
 | `g1` | [g1.globo.com/politica](https://g1.globo.com/politica/) | Sim | Sim |
 | `r7` | [noticias.r7.com/brasilia](https://noticias.r7.com/brasilia/) | Não | Sim |
-| `band` | [band.com.br/politica](https://www.band.com.br/politica) | Não | Não |
+| `band` | [band.com.br/politica](https://www.band.com.br/politica) | Sim | Sim |
 
 Os sites são raspados em paralelo. O resultado de todos é salvo junto em `noticias_politica.json`, na pasta onde o comando foi executado.
 
@@ -127,7 +127,9 @@ outro_site: {
 - Sem `link`, o link vem do `<a>` que envolve o título. Se não houver, vem do próprio card (quando ele é um `<a>`) ou do primeiro `<a>` dentro dele.
 - Sem `resumo` ou `tempo`, os campos saem vazios no JSON.
 - Links relativos (ex.: `/noticia/...`) são convertidos em URLs absolutas a partir da `url` do site. Notícias repetidas na mesma página são descartadas.
-- `card` pode usar `:has(...)`, como na Band: `a[href^='/politica/']:has(h2, h3)` seleciona os links de notícia que contêm um título.
+- `card` pode usar `:has(...)` para selecionar elementos que contenham outros elementos.
+- Para sites que oferecem RSS, configure `rss` com a URL do feed; os itens são convertidos para o mesmo formato das notícias coletadas via página.
+- `rssFallback` pode apontar para um feed alternativo, com `url` e `dominio` para validar a origem das notícias quando o RSS principal responder HTTP 403.
 
 O site novo passa a ser raspado automaticamente junto com os outros. Para testar só ele, use `--site=outro_site`.
 
@@ -326,9 +328,9 @@ Cada execução aparece na aba **Actions**, com o log completo. Os valores dos s
 
 - **Máximo de 15 notícias por site e 30 no total** em cada execução. Os limites são aplicados **depois** do filtro.
 - **A detecção de repetidas vale só dentro da mesma execução.** Uma notícia gravada no Supabase numa execução anterior pode reaparecer com o título de outro site. A IA também pode errar, principalmente em notícias diferentes sobre um mesmo assunto em andamento.
-- **Só a primeira carga da página é lida.** O script não rola o feed nem clica em "Veja mais", então filtros muito específicos podem retornar poucos ou nenhum resultado.
+- **Sites sem RSS são lidos só na primeira carga da página.** O script não rola esses feeds nem clica em "Veja mais", então filtros muito específicos podem retornar poucos ou nenhum resultado.
 - **O arquivo de saída é sobrescrito** a cada execução.
-- **R7 e Band não exibem resumo no feed**, então o filtro por assunto olha só o título nesses sites. A Band também não exibe o tempo de publicação.
+- **O feed do R7 não exibe resumo**, então o filtro por assunto olha só o título nesse site. A Band usa o RSS oficial, com fallback para o Google Notícias em caso de HTTP 403; o fallback fornece título e horário, sem resumo ou imagem.
 - **O feed do R7 mistura editorias.** A página de Brasília lista as últimas notícias do portal, que podem incluir assuntos fora de política.
-- **Os seletores dependem do layout do site.** Se o site mudar o HTML, o script pode parar de encontrar notícias, ou ficar esperando até o tempo limite em `waitForSelector`. Nesse caso, atualize os seletores em `SITES`.
+- **Os seletores dependem do layout dos sites raspados por página.** Se o site mudar o HTML, o script pode parar de encontrar notícias, ou ficar esperando até o tempo limite em `waitForSelector`. Nesse caso, atualize os seletores em `SITES`.
 - O filtro olha apenas o título e o resumo do feed, não o texto completo da notícia.

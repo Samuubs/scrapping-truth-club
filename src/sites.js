@@ -16,8 +16,11 @@ const SITES = {
     },
     band: {
         url: "https://www.band.com.br/politica",
-        card: "a[href^='/politica/']:has(h2, h3, h4, p)",
-        titulo: "h2, h3, h4, p",
+        rss: "https://www.band.com.br/rss/politica.xml",
+        rssFallback: {
+            url: "https://news.google.com/rss/search?q=site%3Aband.com.br%2Fpolitica&hl=pt-BR&gl=BR&ceid=BR%3Apt-419",
+            dominio: "band.com.br",
+        },
     },
 };
 
