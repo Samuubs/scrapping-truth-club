@@ -19,6 +19,9 @@ alter table public.noticias alter column comentario set not null;
 alter table public.noticias drop constraint if exists noticias_comentario_preenchido;
 alter table public.noticias add constraint noticias_comentario_preenchido check (btrim(comentario) <> '');
 
+-- Imagem de chamada da notícia
+alter table public.noticias add column if not exists imagem text;
+
 create index if not exists noticias_coletado_em_idx on public.noticias (coletado_em desc);
 
 -- Busca por assunto em português (título + resumo), sem acentos e maiúsculas

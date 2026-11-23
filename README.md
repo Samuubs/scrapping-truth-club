@@ -71,7 +71,7 @@ node scraper_politica.js "meta, tse, flavio bolsonaro"
 
 Os termos separados por vírgula são combinados com **OU**: a notícia entra no resultado se contiver **qualquer um** deles.
 
-> Para exigir que a notícia contenha **todos** os termos, troque `termos.some` por `termos.every` em `scraper_politica.js`.
+> Para exigir que a notícia contenha **todos** os termos, troque `termos.some` por `termos.every` em `src/scraping.js`.
 
 ### 5. Escolher os sites
 
@@ -108,7 +108,7 @@ node scraper_politica.js --site=g1_economia "juros, inflação"
 
 ### 7. Adicionar um novo site
 
-Inclua uma entrada no objeto `SITES` em `scraper_politica.js`:
+Inclua uma entrada no objeto `SITES` em `src/sites.js`:
 
 ```js
 outro_site: {
@@ -162,7 +162,7 @@ No fim, o log mostra quantas comparações foram feitas pela IA. Cada notícia g
 
 ### Configuração
 
-As constantes ficam no início de `scraper_politica.js`:
+As constantes ficam no início de `src/duplicadas.js` (`LIMITE_POR_SITE` fica em `src/scraping.js`):
 
 | Constante | Padrão | Descrição |
 |---|---|---|
@@ -258,7 +258,7 @@ No fim, o log mostra quantos comentários cada agente gerou.
 ### Observações
 
 - Configure mais de um provedor. Como o script desiste na hora quando nenhum agente está disponível, uma instabilidade curta num único provedor já é suficiente para a execução falhar. No GitHub Actions, o GitHub Models já entra na cadeia automaticamente.
-- Para mudar o tom ou o tamanho do comentário, edite `PROMPT_COMENTARIO` em `scraper_politica.js`.
+- Para mudar o tom ou o tamanho do comentário, defina `PROMPT_COMENTARIO` no `.env` (localmente) e no secret de mesmo nome (GitHub Actions). Assim o prompt não fica no código. Sem ele, é usado um prompt genérico de `src/comentarios.js`. Respostas que repetem trechos do prompt são descartadas.
 - Em planos gratuitos, alguns provedores (como o Gemini) podem usar os dados enviados para melhorar seus modelos.
 
 ## Envio ao Supabase (opcional)
@@ -283,6 +283,7 @@ O workflow [.github/workflows/scraper.yml](.github/workflows/scraper.yml) roda o
    | `SUPABASE_URL` | URL do projeto no Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | Chave `service_role` do Supabase |
    | `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Chaves dos provedores de IA (opcionais; crie só as que tiver) |
+   | `PROMPT_COMENTARIO` | Prompt do comentário (opcional; sem ele, é usado o padrão genérico) |
 
    Para mudar a ordem da cadeia de IA, crie também, na aba **Variables** da mesma página, a variável `AI_PROVEDORES` (veja [Comentários gerados por IA](#comentários-gerados-por-ia)). Um provedor personalizado também funciona, com as variáveis `AI_BASE_URL`/`AI_MODEL` e o secret `AI_API_KEY`.
 
