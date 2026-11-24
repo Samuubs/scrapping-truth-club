@@ -34,10 +34,11 @@ function lerPagina(html, link) {
         metaConteudo(html, "article:published_time|datePublished") ||
         html.match(/"datePublished"\s*:\s*"([^"]+)"/)?.[1];
     const data = publicado ? new Date(publicado) : null;
-    const imagem = metaConteudo(html, "og:image|twitter:image");
+    const imagem = metaConteudo(html, "og:image|twitter:image")?.trim();
+    const imagemValida = imagem && !/^(?:none|null|undefined)$/i.test(imagem);
     return {
         data: data && !isNaN(data) ? data : null,
-        imagem: imagem ? new URL(imagem.replace(/&amp;/g, "&"), link).href : "",
+        imagem: imagemValida ? new URL(imagem.replace(/&amp;/g, "&"), link).href : "",
     };
 }
 
