@@ -77,7 +77,8 @@ async function completarDaPagina(noticias) {
                 const dataFeed = n.tempo_publicacao ? new Date(n.tempo_publicacao) : null;
                 const dataValida = dataFeed && !Number.isNaN(dataFeed.getTime()) ? dataFeed : null;
                 const linkGoogleNoticias = new URL(n.link).hostname === "news.google.com";
-                const html = dataValida && (n.imagem || linkGoogleNoticias)
+                const imagemDaPaginaPrioritaria = n.site === "r7";
+                const html = dataValida && (n.imagem || linkGoogleNoticias) && !imagemDaPaginaPrioritaria
                     ? null
                     : (await baixarHtml(n.link)) ?? (await htmlPeloNavegador(n.link));
                 const pagina = html ? lerPagina(html, n.link) : {};
@@ -88,7 +89,9 @@ async function completarDaPagina(noticias) {
                     semData++;
                 }
                 n.tempo_publicacao = formatarHora(data);
-                n.imagem ||= pagina.imagem || "";
+                n.imagem = imagemDaPaginaPrioritaria
+                    ? pagina.imagem || ""
+                    : n.imagem || pagina.imagem || "";
             })
         );
     } finally {
